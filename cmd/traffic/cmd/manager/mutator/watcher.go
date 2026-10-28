@@ -208,7 +208,7 @@ func (c *configWatcher) regenerateAgentConfigs(ctx context.Context, ns string, g
 					podsOfInterest = append(podsOfInterest, pod)
 				}
 			} else {
-				c.Store(sc)
+				c.Store(restoreAgentContainerConfig(sc, gc))
 			}
 		}
 		if len(podsOfInterest) > 0 {
@@ -297,6 +297,22 @@ func (c *configWatcher) Update(name, namespace string, updater func(*agentconfig
 
 func (c *configWatcher) Store(sc *agentconfig.Sidecar) {
 	c.namespaceAgentConfigs(sc.Namespace).Store(sc.AgentName, sc)
+}
+
+// Pod annotations omit container creation fields. Restore them without changing
+// the cached port mappings or intercept selections shared with active agents.
+func restoreAgentContainerConfig(sc *agentconfig.Sidecar, gc *agentmap.GeneratorConfig) *agentconfig.Sidecar {
+	if sc.AgentImage != "" {
+		return sc
+	}
+	restored := sc.Clone()
+	restored.AgentImage = gc.QualifiedAgentImage
+	restored.PullPolicy = gc.PullPolicy
+	restored.PullSecrets = slices.Clone(gc.PullSecrets)
+	restored.InitResources = gc.InitResources.DeepCopy()
+	restored.SecurityContext = gc.SecurityContext.DeepCopy()
+	restored.InitSecurityContext = gc.InitSecurityContext.DeepCopy()
+	return restored
 }
 
 func NewWatcher() Map {

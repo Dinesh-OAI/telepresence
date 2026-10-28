@@ -167,6 +167,13 @@ func (a *agentInjector) Inject(ctx context.Context, req *admission.AdmissionRequ
 			clog.Tracef(ctx, "Skipping webhook where agent is manually injected %s", wl.GetNamespace())
 			return nil, nil
 		}
+		if sc.AgentImage == "" {
+			gc, err := env.GeneratorConfig(img)
+			if err != nil {
+				return nil, fmt.Errorf("unable to restore agent container config for workload %s.%s: %w", wl.GetNamespace(), wl.GetName(), err)
+			}
+			sc = restoreAgentContainerConfig(sc, gc)
+		}
 	default:
 		// A bad annotation value is a user error that retrying cannot fix, so categorize it as such.
 		// The webhook admits the pod (without an agent) and surfaces this as a warning rather than
